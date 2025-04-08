@@ -4,6 +4,19 @@ import random
 from flask import Flask, render_template, request, jsonify, session
 from instagrapi import Client
 import threading
+import logging
+
+# ファイルの先頭でログ設定を行う
+logging.basicConfig(
+    level=logging.DEBUG,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.StreamHandler(),
+        logging.FileHandler('debug.log')
+    ]
+)
+logger = logging.getLogger(__name__)
+
 
 app = Flask(__name__)
 app.secret_key = os.environ.get('SECRET_KEY', 'dev-secret-key')
@@ -39,7 +52,7 @@ def login_with_cookie(username, password):
         print(f"✅ {username} 通常のログイン成功！")
         return cl
     except Exception as e:
-        print(f"❌ {username} ログイン失敗: {str(e)}")
+        logger.error(f"❌ {username} ログイン失敗: {str(e)}")
         return None
 
 def get_top_100_followers(cl, target_account):
