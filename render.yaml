@@ -4,17 +4,17 @@ services:
     env: python
     buildCommand: pip install -r requirements.txt
     startCommand: gunicorn app:app
-    repo: https://github.com/yourusername/your-repo.git # あなたのリポジトリURLに変更してください
-    branch: main # 使用するブランチ
+    repo: https://github.com/miramul/instaDM.git  # 実際のリポジトリURLに修正
+    branch: main
     healthCheckPath: /
     envVars:
       - key: SECRET_KEY
-        generateValue: true # ランダムに生成された安全な値を使用
+        generateValue: true
       - key: PYTHON_VERSION
-        value: 3.9.0 # Pythonのバージョン指定
+        value: 3.9.0
       - key: PORT
-        value: 10000 # Renderが使用するポート
+        value: 10000
     disk:
       name: data
       mountPath: /data
-      sizeGB: 1 # 1GBのディスク容量
+      sizeGB: 1
