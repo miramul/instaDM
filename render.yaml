@@ -1,13 +1,20 @@
-version: 1.0
-runtime: python3
-build:
-  commands:
-    pre-build:
-      - pip install --upgrade pip
-    build:
-      - pip install -r requirements.txt
-run:
-  command: python app.py
-  network:
-    port: 5000
-    env: PORT
+services:
+  - type: web
+    name: insta-dm-sender
+    env: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn app:app
+    repo: https://github.com/yourusername/your-repo.git # あなたのリポジトリURLに変更してください
+    branch: main # 使用するブランチ
+    healthCheckPath: /
+    envVars:
+      - key: SECRET_KEY
+        generateValue: true # ランダムに生成された安全な値を使用
+      - key: PYTHON_VERSION
+        value: 3.9.0 # Pythonのバージョン指定
+      - key: PORT
+        value: 10000 # Renderが使用するポート
+    disk:
+      name: data
+      mountPath: /data
+      sizeGB: 1 # 1GBのディスク容量
