@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>実行ログ</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        h1 {
+            color: #333;
+        }
+        .log-container {
+            margin-bottom: 30px;
+            background-color: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+        .log-header {
+            background-color: #4a6fa5;
+            color: white;
+            padding: 10px 15px;
+            font-weight: bold;
+            display: flex;
+            justify-content: space-between;
+        }
+        .log-content {
+            padding: 15px;
+            background-color: #1e1e1e;
+            color: #ddd;
+            font-family: monospace;
+            white-space: pre-wrap;
+            overflow-x: auto;
+            max-height: 500px;
+            overflow-y: auto;
+        }
+        .back-button {
+            display: inline-block;
+            margin-bottom: 20px;
+            padding: 8px 15px;
+            background-color: #4a6fa5;
+            color: white;
+            text-decoration: none;
+            border-radius: 4px;
+        }
+        .toggle-button {
+            cursor: pointer;
+            user-select: none;
+        }
+        .hidden {
+            display: none;
+        }
+        .success {
+            color: #4caf50;
+        }
+        .warning {
+            color: #ff9800;
+        }
+        .error {
+            color: #f44336;
+        }
+    </style>
+</head>
+<body>
+    <a href="/" class="back-button">トップに戻る</a>
+    <h1>実行ログ</h1>
+    <div id="logs-container">
+        <p>ログを読み込み中...</p>
+    </div>
+
+    <script>
+        // ログをハイライト
+        function highlightLog(text) {
+            return text
+                .replace(/✅/g, '<span class="success">✅</span>')
+                .replace(/⚠️/g, '<span class="warning">⚠️</span>')
+                .replace(/❌/g, '<span class="error">❌</span>')
+                .replace(/エラー/g, '<span class="error">エラー</span>')
+                .replace(/失敗/g, '<span class="error">失敗</span>')
+                .replace(/成功/g, '<span class="success">成功</span>');
+        }
+
+        // ログを取得して表示
+        async function fetchLogs() {
+            try {
+                const response = await fetch('/api/logs');
+                const data = await response.json();
+                
+                const logsContainer = document.getElementById('logs-container');
+                
+                if (data.length === 0) {
+                    logsContainer.innerHTML = '<p>ログはまだありません。</p>';
+                    return;
+                }
+                
+                let html = '';
+                
+                data.forEach((log, index) => {
+                    const date = new Date(parseInt(log.timestamp) * 1000);
+                    const formattedDate = date.toLocaleString('ja-JP');
+                    
+                    html += `
+                    <div class="log-container">
+                        <div class="log-header">
+                            <span>タスク: ${log.task_id}</span>
+                            <span>${formattedDate}</span>
+                            <span class="toggle-button" onclick="toggleLog(${index})">▼</span>
+                        </div>
+                        <div id="log-content-${index}" class="log-content">
+                            ${highlightLog(log.logs.replace(/</g, '&lt;').replace(/>/g, '&gt;'))}
+                        </div>
+                    </div>`;
+                });
+                
+                logsContainer.innerHTML = html;
+                
+            } catch (error) {
+                console.error('ログの取得に失敗しました:', error);
+                document.getElementById('logs-container').innerHTML = 
+                    '<p class="error">ログの取得に失敗しました。</p>';
+            }
+        }
+        
+        // ログの表示/非表示を切り替え
+        function toggleLog(index) {
+            const logContent = document.getElementById(`log-content-${index}`);
+            const toggleButton = document.querySelector(`.log-container:nth-child(${index + 1}) .toggle-button`);
+            
+            if (logContent.classList.contains('hidden')) {
+                logContent.classList.remove('hidden');
+                toggleButton.textContent = '▼';
+            } else {
+                logContent.classList.add('hidden');
+                toggleButton.textContent = '▶';
+            }
+        }
+        
+        // ページ読み込み時にログを取得
+        document.addEventListener('DOMContentLoaded', fetchLogs);
+        
+        // 30秒ごとに自動更新
+        setInterval(fetchLogs, 30000);
+    </script>
+</body>
+</html>
