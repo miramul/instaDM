@@ -1,3 +1,193 @@
-flask==2.3.3
-instagrapi==1.19.1
-gunicorn==21.2.0
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Instagram DM 自動送信</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            max-width: 800px;
+            margin: it auto;
+            background-color: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            text-align: center;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        input, textarea {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+        textarea {
+            min-height: 100px;
+        }
+        button {
+            background-color: #4a6fa5;
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        button:hover {
+            background-color: #3a5982;
+        }
+        .status {
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 4px;
+            display: none;
+        }
+        .success {
+            background-color: #e8f5e9;
+            color: #2e7d32;
+            border: 1px solid #c8e6c9;
+        }
+        .error {
+            background-color: #ffebee;
+            color: #c62828;
+            border: 1px solid #ffcdd2;
+        }
+        .warning {
+            background-color: #fff8e1;
+            color: #ff8f00;
+            border: 1px solid #ffecb3;
+        }
+        .logs-link {
+            display: block;
+            text-align: center;
+            margin-top: 20px;
+            color: #4a6fa5;
+            text-decoration: none;
+        }
+        .logs-link:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Instagram DM 自動送信</h1>
+        
+        <form id="dm-form">
+            <div class="form-group">
+                <label for="username">Instagram ユーザー名</label>
+                <input type="text" id="username" name="username" required>
+            </div>
+            
+            <div class="form-group">
+                <label for="password">Instagram パスワード</label>
+                <input type="password" id="password" name="password" required>
+            </div>
+            
+            <div class="form-group">
+                <label for="targets">ターゲットアカウント (カンマ区切り)</label>
+                <input type="text" id="targets" name="targets" required placeholder="例: account1,account2,account3">
+            </div>
+            
+            <div class="form-group">
+                <label for="message">DM メッセージ</label>
+                <textarea id="message" name="message" required></textarea>
+            </div>
+            
+            <button type="submit">DM送信を開始</button>
+        </form>
+        
+        <div id="status" class="status"></div>
+        
+        <a href="/logs" class="logs-link">実行ログを表示</a>
+    </div>
+
+    <script>
+        const form = document.getElementById('dm-form');
+        const statusDiv = document.getElementById('status');
+        let taskId = null;
+        let statusCheckInterval = null;
+        
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const formData = {
+                username: document.getElementById('username').value,
+                password: document.getElementById('password').value,
+                targets: document.getElementById('targets').value,
+                message: document.getElementById('message').value
+            };
+            
+            try {
+                statusDiv.className = 'status warning';
+                statusDiv.style.display = 'block';
+                statusDiv.textContent = 'DMの送信を開始しています...';
+                
+                const response = await fetch('/api/send-dm', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(formData)
+                });
+                
+                const data = await response.json();
+                
+                if (data.status === 'started') {
+                    taskId = data.task_id;
+                    checkTaskStatus();
+                    statusCheckInterval = setInterval(checkTaskStatus, 5000);
+                } else {
+                    statusDiv.className = 'status error';
+                    statusDiv.textContent = data.message || 'エラーが発生しました。';
+                }
+            } catch (error) {
+                statusDiv.className = 'status error';
+                statusDiv.textContent = 'サーバーとの通信に失敗しました。';
+                console.error('Error:', error);
+            }
+        });
+        
+        async function checkTaskStatus() {
+            if (!taskId) return;
+            
+            try {
+                const response = await fetch(`/api/task-status/${taskId}`);
+                const data = await response.json();
+                
+                if (data.status === 'error') {
+                    clearInterval(statusCheckInterval);
+                    statusDiv.className = 'status error';
+                    statusDiv.textContent = data.message;
+                } else if (data.status === 'complete') {
+                    clearInterval(statusCheckInterval);
+                    statusDiv.className = 'status success';
+                    statusDiv.textContent = data.message;
+                } else {
+                    statusDiv.className = 'status warning';
+                    statusDiv.textContent = data.message;
+                }
+            } catch (error) {
+                console.error('タスク状態確認エラー:', error);
+            }
+        }
+    </script>
+</body>
+</html>
