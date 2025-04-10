@@ -1,0 +1,4 @@
+Flask==2.3.3
+gunicorn==21.2.0
+instagrapi==1.18.4
+Werkzeug==2.3.7
