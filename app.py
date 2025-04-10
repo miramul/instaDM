@@ -4,11 +4,46 @@ import random
 from flask import Flask, render_template, request, jsonify, session
 from instagrapi import Client
 import threading
+import logging
+from io import StringIO
 
 app = Flask(__name__)
 app.secret_key = os.environ.get('SECRET_KEY', 'dev-secret-key')
 
 SENT_USERS_FILE = "sent_users.txt"
+
+# ログキャプチャ用のハンドラーを設定
+class LogCapture:
+    def __init__(self):
+        self.log_stream = StringIO()
+        self.handler = logging.StreamHandler(self.log_stream)
+        self.handler.setFormatter(logging.Formatter('%(asctime)s - %(levelname)s - %(message)s'))
+        
+        # ルートロガーにハンドラーを追加
+        logging.getLogger().setLevel(logging.INFO)
+        logging.getLogger().addHandler(self.handler)
+        
+        # 標準出力も記録
+        self.stdout_capture = StringIO()
+        self.original_stdout = None
+    
+    def start_capture(self):
+        import sys
+        self.original_stdout = sys.stdout
+        sys.stdout = self.stdout_capture
+    
+    def stop_capture(self):
+        import sys
+        if self.original_stdout:
+            sys.stdout = self.original_stdout
+    
+    def get_logs(self):
+        # ログストリームと標準出力の両方を取得
+        return self.log_stream.getvalue() + self.stdout_capture.getvalue()
+
+# グローバルにログキャプチャを設定
+log_capture = LogCapture()
+log_entries = []
 
 def delete_session_file(username):
     session_file = f"session_{username}.json"
@@ -155,9 +190,15 @@ def send_dm_api():
     task_id = f"task_{username}_{int(time.time())}"
     tasks[task_id] = {"status": "starting", "message": "タスクを開始しています..."}
     
+    # ログキャプチャを開始
+    log_capture.start_capture()
+    
     # バックグラウンドでDM送信を実行
     def update_task_status(result):
         tasks[task_id] = result
+        # タスク完了時のログを保存
+        result["logs"] = log_capture.get_logs()
+        log_capture.stop_capture()
         
     thread = threading.Thread(
         target=send_dm_task, 
@@ -173,6 +214,28 @@ def get_task_status(task_id):
     if task_id in tasks:
         return jsonify(tasks[task_id])
     return jsonify({"status": "error", "message": "タスクが見つかりません"})
+
+# 実行ログを表示するためのルート
+@app.route('/logs')
+def view_logs():
+    return render_template('logs.html')
+
+@app.route('/api/logs', methods=['GET'])
+def get_logs():
+    # 全てのタスクからログを収集
+    all_logs = []
+    for task_id, task_data in tasks.items():
+        if "logs" in task_data:
+            all_logs.append({
+                "task_id": task_id,
+                "timestamp": task_id.split("_")[-1],
+                "logs": task_data["logs"]
+            })
+    
+    # 時間順にソート
+    all_logs.sort(key=lambda x: x["timestamp"], reverse=True)
+    
+    return jsonify(all_logs)
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
